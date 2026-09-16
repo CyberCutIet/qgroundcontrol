@@ -4,12 +4,15 @@
 #include <QtCore/QEventLoop>
 #include <QtCore/QPointer>
 #include <QtCore/QRegularExpression>
+#include <QtCore/QScopeGuard>
 #include <QtTest/QSignalSpy>
 
 #include "JoystickManager.h"
+#include "JoystickManagerSettings.h"
 #include "JoystickSDL.h"
 #include "MockJoystick.h"
 #include "SDLJoystick.h"
+#include "SettingsManager.h"
 
 void JoystickManagerTest::initTestCase()
 {
@@ -266,6 +269,56 @@ void JoystickManagerTest::_autoSelectFirstJoystickTest()
     // Manager should auto-select the first available joystick
     // (behavior depends on settings, so just verify it doesn't crash)
     manager->availableJoystickNames();
+}
+
+void JoystickManagerTest::_tx12ReconnectDoesNotSelectPocketTest()
+{
+    auto* manager = JoystickManager::instance();
+    const QString tx12Name = QStringLiteral("OpenTX Radiomaster TX12 Joystick");
+    const QString pocketName = QStringLiteral("EdgeTX Radiomaster Pocket Joystick");
+    _refreshJoysticks(manager);
+    if (manager->availableJoystickNames().contains(tx12Name)) {
+        QSKIP("Run the virtual reconnect test without a physical TX12 in this process");
+    }
+
+    auto* settings = SettingsManager::instance()->joystickManagerSettings();
+    const QVariant savedName = settings->activeJoystickName()->rawValue();
+    const QVariant savedEnabled = settings->joystickEnabledVehiclesIds()->rawValue();
+    const auto restore = qScopeGuard([&]() {
+        settings->activeJoystickName()->setRawValue(savedName);
+        settings->joystickEnabledVehiclesIds()->setRawValue(savedEnabled);
+    });
+
+    _mockJoystick2.reset(MockJoystick::create(pocketName, 6, 16, 1));
+    QVERIFY(_mockJoystick2->isValid());
+    settings->activeJoystickName()->setRawValue(pocketName);
+    settings->joystickEnabledVehiclesIds()->setRawValue(QStringLiteral("1"));
+    _refreshJoysticks(manager);
+    QVERIFY(!manager->availableJoystickNames().contains(pocketName));
+    QVERIFY(!manager->joystickByName(pocketName));
+    QVERIFY(!manager->activeJoystick());
+    QCOMPARE(settings->activeJoystickName()->rawValue().toString(), tx12Name);
+
+    _mockJoystick1.reset(MockJoystick::create(tx12Name, 6, 16, 1));
+    QVERIFY(_mockJoystick1->isValid());
+    QVERIFY(_waitForJoystickNames(manager, {tx12Name}));
+    QVERIFY(manager->activeJoystick());
+    QCOMPARE(manager->activeJoystick()->name(), tx12Name);
+
+    _mockJoystick1.reset();
+    _refreshJoysticks(manager);
+    QVERIFY(!manager->activeJoystick());
+    QCOMPARE(settings->activeJoystickName()->rawValue().toString(), tx12Name);
+    QCOMPARE(settings->joystickEnabledVehiclesIds()->rawValue().toString(), QStringLiteral("1"));
+    QVERIFY(_mockJoystick2->isValid());
+
+    _mockJoystick1.reset(MockJoystick::create(tx12Name, 6, 16, 1));
+    QVERIFY(_mockJoystick1->isValid());
+    QVERIFY(_waitForJoystickNames(manager, {tx12Name}));
+    QVERIFY(manager->activeJoystick());
+    QCOMPARE(manager->activeJoystick()->name(), tx12Name);
+    QCOMPARE(settings->joystickEnabledVehiclesIds()->rawValue().toString(), QStringLiteral("1"));
+    QVERIFY(!manager->availableJoystickNames().contains(pocketName));
 }
 
 //-----------------------------------------------------------------------------

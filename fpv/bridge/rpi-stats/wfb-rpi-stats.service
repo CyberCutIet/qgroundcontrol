@@ -1,0 +1,19 @@
+[Unit]
+Description=Forward RPi WFB receive statistics over dedicated UDP stream
+After=network.target wifibroadcast@drone.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /usr/local/libexec/wfb_rpi_stats.py
+Restart=on-failure
+RestartSec=2
+DynamicUser=yes
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+RestrictAddressFamilies=AF_INET AF_UNIX
+TimeoutStopSec=8
+
+[Install]
+WantedBy=multi-user.target

@@ -23,6 +23,8 @@
 #include <QtQuick/QQuickItem>
 
 #include <algorithm>
+#include <memory>
+#include <utility>
 
 #include <gst/gst.h>
 #include <gst/video/video.h>
@@ -206,7 +208,10 @@ void GstVideoReceiver::start(uint32_t timeout)
         // starts later, the newly linked parser receives the negotiated codec configuration.
         gst_util_set_object_arg(G_OBJECT(_recorderValve), "drop-mode", "forward-sticky-events");
 
-        _pipeline = gst_pipeline_new("receiver");
+        {
+            QMutexLocker lock(&_pipelineMutex);
+            _pipeline = gst_pipeline_new("receiver");
+        }
         if (!_pipeline) {
             qCCritical(GstVideoReceiverLog) << "gst_pipeline_new() failed";
             break;
@@ -275,8 +280,26 @@ void GstVideoReceiver::start(uint32_t timeout)
         qCCritical(GstVideoReceiverLog) << "Failed";
 
         if (_pipeline) {
+            GstBus *bus = gst_pipeline_get_bus(GST_PIPELINE(_pipeline));
+            if (bus) {
+                gst_bus_disable_sync_message_emission(bus);
+                (void) g_signal_handlers_disconnect_by_data(bus, this);
+                gst_clear_object(&bus);
+            }
             (void) gst_element_set_state(_pipeline, GST_STATE_NULL);
             (void) gst_element_get_state(_pipeline, nullptr, nullptr, GST_CLOCK_TIME_NONE);
+        }
+
+        if (_teeProbeId != 0 && _tee) {
+            GstPad *pad = gst_element_get_static_pad(_tee, "sink");
+            if (pad) {
+                gst_pad_remove_probe(pad, _teeProbeId);
+                gst_clear_object(&pad);
+            }
+        }
+        _teeProbeId = 0;
+        {
+            QMutexLocker lock(&_pipelineMutex);
             gst_clear_object(&_pipeline);
         }
 
@@ -287,6 +310,18 @@ void GstVideoReceiver::start(uint32_t timeout)
             gst_clear_object(&decoderQueue);
             gst_clear_object(&_tee);
             gst_clear_object(&_source);
+        } else {
+            // The bin owned these elements and has just destroyed them. A later stop()
+            // or retry must never dereference their former addresses.
+            _recorderValve = nullptr;
+            _decoderValve = nullptr;
+            _tee = nullptr;
+            _source = nullptr;
+        }
+        _lastSourceFrameTime = 0;
+        if (_streaming) {
+            _streaming = false;
+            emit streamingChanged(false);
         }
 
         emit onStartComplete(STATUS_FAIL);
@@ -1413,9 +1448,24 @@ GstElement *GstVideoReceiver::_acquirePipelineRef() const
     return GST_ELEMENT(gst_object_ref(_pipeline));
 }
 
-gboolean GstVideoReceiver::_onBusMessage(GstBus * /* bus */, GstMessage *msg, gpointer data)
+void GstVideoReceiver::_dispatchBusTask(GstBus *bus, Task task)
 {
-    if (!msg || !data) {
+    // Hold the originating bus alive, so pointer reuse cannot make a stale ERROR/EOS
+    // stop a new pipeline. Synchronous start failures are already handled by start().
+    auto origin = std::shared_ptr<GstBus>(GST_BUS(gst_object_ref(bus)), gst_object_unref);
+    _worker->dispatch([this, origin, task = std::move(task)]() {
+        GstBus *current = _pipeline ? gst_pipeline_get_bus(GST_PIPELINE(_pipeline)) : nullptr;
+        const bool matches = current == origin.get();
+        gst_clear_object(&current);
+        if (matches) {
+            task();
+        }
+    });
+}
+
+gboolean GstVideoReceiver::_onBusMessage(GstBus *bus, GstMessage *msg, gpointer data)
+{
+    if (!bus || !msg || !data) {
         qCCritical(GstVideoReceiverLog) << "Invalid parameters in _onBusMessage: msg=" << msg << "data=" << data;
         return TRUE;
     }
@@ -1435,7 +1485,6 @@ gboolean GstVideoReceiver::_onBusMessage(GstBus * /* bus */, GstMessage *msg, gp
 
         if (debug) {
             qCDebug(GstVideoReceiverLog) << "GStreamer debug:" << debug;
-            g_clear_pointer(&debug, g_free);
         }
 
         if (error) {
@@ -1443,10 +1492,12 @@ gboolean GstVideoReceiver::_onBusMessage(GstBus * /* bus */, GstMessage *msg, gp
                 qCWarning(GstVideoReceiverLog)
                     << "Ignoring unsupported H.265 RTP PACI packet from rtph265depay:" << error->message;
             } else {
-                qCCritical(GstVideoReceiverLog) << "GStreamer error:" << error->message;
+                qCCritical(GstVideoReceiverLog) << "GStreamer error:" << error->message
+                                               << "details:" << (debug ? debug : "(none)");
             }
             g_clear_error(&error);
         }
+        g_clear_pointer(&debug, g_free);
 
         if (recoverableH265PaciError) {
             break;
@@ -1467,7 +1518,7 @@ gboolean GstVideoReceiver::_onBusMessage(GstBus * /* bus */, GstMessage *msg, gp
 
         // GPU-side ERROR handling (cached-device drop) runs in HwBuffers::dispatchBusMessage above.
         // _scheduleReconnect calls stop() then queues a backoff retry if autoReconnect is on.
-        pThis->_worker->dispatch([pThis]() {
+        pThis->_dispatchBusTask(bus, [pThis]() {
             qCDebug(GstVideoReceiverLog) << "Stopping because of error";
             pThis->_scheduleReconnect("pipeline error");
         });
@@ -1487,7 +1538,7 @@ gboolean GstVideoReceiver::_onBusMessage(GstBus * /* bus */, GstMessage *msg, gp
         break;
     }
     case GST_MESSAGE_EOS:
-        pThis->_worker->dispatch([pThis]() {
+        pThis->_dispatchBusTask(bus, [pThis]() {
             qCDebug(GstVideoReceiverLog) << "Received EOS";
             pThis->_handleEOS();
         });

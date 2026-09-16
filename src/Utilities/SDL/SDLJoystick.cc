@@ -474,11 +474,13 @@ int getInstanceIdFromPlayerIndex(int playerIndex)
 
 QString getNameForInstanceId(int instanceId)
 {
-    const char *name = SDL_GetGamepadNameForID(static_cast<SDL_JoystickID>(instanceId));
+    // Gamepad mappings can give different radios with the same USB IDs the same name.
+    // Identify the device by its original joystick name before considering a mapping alias.
+    const char* name = SDL_GetJoystickNameForID(static_cast<SDL_JoystickID>(instanceId));
     if (name && *name) {
         return QString::fromUtf8(name);
     }
-    name = SDL_GetJoystickNameForID(static_cast<SDL_JoystickID>(instanceId));
+    name = SDL_GetGamepadNameForID(static_cast<SDL_JoystickID>(instanceId));
     if (name && *name) {
         return QString::fromUtf8(name);
     }

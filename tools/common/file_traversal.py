@@ -32,7 +32,7 @@ ALL_CPP_EXTENSIONS = CPP_EXTENSIONS | HEADER_EXTENSIONS
 
 def find_repo_root(start_path: Path | None = None) -> Path:
     """
-    Find the repository root by looking for .git directory.
+    Find the QGC source root, including snapshots inside a parent repository.
 
     Args:
         start_path: Starting point for search. Defaults to current file.
@@ -46,6 +46,10 @@ def find_repo_root(start_path: Path | None = None) -> Path:
     current = start_path if start_path.is_dir() else start_path.parent
 
     for parent in [current, *current.parents]:
+        if (parent / "src" / "qgc_version.h.in").is_file() and (
+            parent / "tools" / "pyproject.toml"
+        ).is_file():
+            return parent
         if (parent / ".git").exists():
             return parent
 

@@ -147,6 +147,16 @@ void JoystickManager::_setActiveJoystickFromSettings()
 {
     QString activeJoystickName = _joystickManagerSettings->activeJoystickName()->rawValue().toString();
 
+    const QString tx12Name = QStringLiteral("OpenTX Radiomaster TX12 Joystick");
+    if (_name2JoystickMap.contains(tx12Name) || activeJoystickName == tx12Name ||
+        activeJoystickName == QStringLiteral("EdgeTX Radiomaster Pocket Joystick")) {
+        // Retain the TX12 selection while unplugged, including profiles that previously
+        // fell back to Pocket. Reconnection resumes the saved calibration/enable state.
+        _joystickManagerSettings->activeJoystickName()->setRawValue(tx12Name);
+        _setActiveJoystickByName(tx12Name);
+        return;
+    }
+
     // Auto-select first available joystick if:
     // - No joystick name is saved in settings, OR
     // - Saved joystick name doesn't match any currently connected joystick
@@ -212,7 +222,9 @@ void JoystickManager::_setActiveJoystick(Joystick *newActiveJoystick)
         auto activeVehicle = multiVehicleManager->activeVehicle();
 
         if (activeVehicle) {
-            if (_activeJoystick->requiresCalibration() && _joystickEnabledForVehicle(activeVehicle)) {
+            if (_activeJoystick->requiresCalibration() &&
+                !_activeJoystick->settings()->calibrated()->rawValue().toBool() &&
+                _joystickEnabledForVehicle(activeVehicle)) {
                 qCWarning(JoystickManagerLog) << "Active joystick not calibrated but enabled, cannot start polling for active vehicle. Setting joystick for vehicle to disabled.";
                 setActiveJoystickEnabledForActiveVehicle(false);
             } else if (_joystickEnabledForVehicle(activeVehicle)) {

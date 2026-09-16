@@ -14,6 +14,8 @@ QGC_LOGGING_CATEGORY(GStreamerTestLog, "Video.GStreamer.GStreamerTest")
 #include <QtCore/QScopeGuard>
 #include <QtCore/QStandardPaths>
 #include <QtCore/QTemporaryDir>
+#include <QtNetwork/QUdpSocket>
+#include <QtTest/QSignalSpy>
 
 #include <atomic>
 #include <gst/app/gstappsrc.h>
@@ -565,6 +567,65 @@ void GStreamerTest::_testCreateVideoReceiver()
     QVERIFY(qobject_cast<GstVideoReceiver*>(receiver.get()));
 }
 
+void GStreamerTest::_testReceiverFailedStartCanRetry()
+{
+    ignoreLogMessage("Video.GStreamer.GstVideoReceiver", QtCriticalMsg,
+                     QRegularExpression(QStringLiteral("GStreamer error:|^Failed$")));
+    GstVideoReceiver receiver;
+    receiver.setAutoReconnect(false);
+    QSignalSpy starts(&receiver, &VideoReceiver::onStartComplete);
+    QSignalSpy stops(&receiver, &VideoReceiver::onStopComplete);
+    receiver.setUri(QStringLiteral("udp://198.51.100.1:5602"));
+    for (int attempt = 0; attempt < 3; ++attempt) {
+        receiver.start(1);
+        QTRY_COMPARE_WITH_TIMEOUT(starts.count(), attempt + 1, 5000);
+        QCOMPARE(starts.last().first().value<VideoReceiver::STATUS>(), VideoReceiver::STATUS_FAIL);
+        std::atomic<bool> checked = false;
+        bool clean = false;
+        receiver._worker->dispatch([&] {
+            clean = !receiver._pipeline && !receiver._source && !receiver._tee &&
+                    !receiver._decoderValve && !receiver._recorderValve && receiver._teeProbeId == 0;
+            checked.store(true);
+        });
+        QTRY_VERIFY_WITH_TIMEOUT(checked.load(), 5000);
+        QVERIFY2(clean, "Failed start retained pointers to destroyed pipeline elements");
+    }
+    QCOMPARE(stops.count(), 0); // Queued errors from failed starts must not create extra retries.
+    QUdpSocket availablePort;
+    QVERIFY(availablePort.bind(QHostAddress::LocalHost, 0));
+    const quint16 port = availablePort.localPort();
+    availablePort.close();
+    receiver.setUri(QStringLiteral("udp://127.0.0.1:%1").arg(port));
+    receiver.start(1);
+    QTRY_COMPARE_WITH_TIMEOUT(starts.count(), 4, 5000);
+    QCOMPARE(starts.last().first().value<VideoReceiver::STATUS>(), VideoReceiver::STATUS_OK);
+    receiver.stop();
+    QTRY_COMPARE_WITH_TIMEOUT(stops.count(), 1, 5000);
+}
+
+void GStreamerTest::_testReceiverNoDataCanReconnect()
+{
+    QUdpSocket availablePort;
+    QVERIFY(availablePort.bind(QHostAddress::LocalHost, 0));
+    const quint16 port = availablePort.localPort();
+    availablePort.close();
+    GstVideoReceiver receiver;
+    receiver.setUri(QStringLiteral("udp://127.0.0.1:%1").arg(port));
+    QSignalSpy starts(&receiver, &VideoReceiver::onStartComplete);
+    QSignalSpy stops(&receiver, &VideoReceiver::onStopComplete);
+    QSignalSpy timeouts(&receiver, &VideoReceiver::timeout);
+    receiver.start(1);
+    QTRY_VERIFY_WITH_TIMEOUT(starts.count() >= 1, 5000);
+    QCOMPARE(starts.first().first().value<VideoReceiver::STATUS>(), VideoReceiver::STATUS_OK);
+    QTRY_VERIFY_WITH_TIMEOUT(timeouts.count() >= 1, 7000);
+    QTRY_VERIFY_WITH_TIMEOUT(starts.count() >= 2, 7000);
+    QCOMPARE(starts.last().first().value<VideoReceiver::STATUS>(), VideoReceiver::STATUS_OK);
+    receiver.setAutoReconnect(false);
+    const int beforeStop = stops.count();
+    receiver.stop();
+    QTRY_VERIFY_WITH_TIMEOUT(stops.count() > beforeStop, 5000);
+}
+
 void GStreamerTest::_testRecordingSinkAcceptsElementaryStreams_data()
 {
     QTest::addColumn<QString>("capsString");
@@ -841,6 +902,8 @@ QGC_GST_SKIP_TEST(_testEnvironmentSetup)
 QGC_GST_SKIP_TEST(_testWritePipelineDotReturnsEmptyOnWriteFailure)
 QGC_GST_SKIP_TEST(_testCompleteInit)
 QGC_GST_SKIP_TEST(_testCreateVideoReceiver)
+QGC_GST_SKIP_TEST(_testReceiverFailedStartCanRetry)
+QGC_GST_SKIP_TEST(_testReceiverNoDataCanReconnect)
 
 void GStreamerTest::_testRecordingSinkAcceptsElementaryStreams_data()
 {

@@ -119,6 +119,8 @@ private:
     /// worker thread, so direct dereference of _pipeline races with gst_clear_object(&_pipeline).
     GstElement *_acquirePipelineRef() const;
 
+    void _dispatchBusTask(GstBus *bus, Task task);
+
     static gboolean _onBusMessage(GstBus *bus, GstMessage *message, gpointer user_data);
     static void _onNewPad(GstElement *element, GstPad *pad, gpointer data);
     static GstPadProbeReturn _teeProbe(GstPad *pad, GstPadProbeInfo *info, gpointer user_data);

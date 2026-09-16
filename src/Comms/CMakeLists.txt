@@ -8,6 +8,10 @@
 # ----------------------------------------------------------------------------
 target_sources(${CMAKE_PROJECT_NAME}
     PRIVATE
+        RpiLinkStatus.cc
+        RpiLinkStatus.h
+        WfbLinkStatus.cc
+        WfbLinkStatus.h
         LinkConfiguration.cc
         LinkConfiguration.h
         LinkInterface.cc

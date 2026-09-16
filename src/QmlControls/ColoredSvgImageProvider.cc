@@ -25,6 +25,7 @@ QImage ColoredSvgImageProvider::requestImage(const QString &id, QSize *size, con
 
     QString path = id.left(q);
     const QString query = id.mid(q + 1);
+    const bool whiteMask = query.split(QLatin1Char('&')).contains(QStringLiteral("mask=white"));
 
     // Normalize "/foo" or "qrc:/foo" to a Qt resource path ":/foo".
     if (path.startsWith(QLatin1String("qrc:/"))) {
@@ -93,6 +94,20 @@ QImage ColoredSvgImageProvider::requestImage(const QString &id, QSize *size, con
         if (src.isNull()) {
             qCWarning(ColoredSvgImageProviderLog) << "failed to load:" << path;
             return {};
+        }
+        if (whiteMask) {
+            // White artwork may arrive on an opaque grey preview background. Extract
+            // its bright strokes before downscaling so thin details retain coverage.
+            src = src.convertToFormat(QImage::Format_ARGB32);
+            for (int y = 0; y < src.height(); ++y) {
+                auto* pixels = reinterpret_cast<QRgb*>(src.scanLine(y));
+                for (int x = 0; x < src.width(); ++x) {
+                    const QRgb pixel = pixels[x];
+                    const int white = qMin(qRed(pixel), qMin(qGreen(pixel), qBlue(pixel)));
+                    const int alpha = qBound(0, (white - 220) * 255 / 25, 255) * qAlpha(pixel) / 255;
+                    pixels[x] = qRgba(255, 255, 255, alpha);
+                }
+            }
         }
         outSize = fillMissingDim(outSize, src.size());
         if (outSize.width() > 0 && outSize.height() > 0 && outSize != src.size()) {

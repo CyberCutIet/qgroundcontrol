@@ -379,6 +379,7 @@ endif()
 set(QT_NO_MISSING_CATALOG_LANGUAGE_WARNING ON)
 
 qt_add_translations(${CMAKE_PROJECT_NAME}
+    IMMEDIATE_CALL # Qt's deferred argument forwarding splits source paths containing spaces.
     TS_FILES ${TS_SOURCES}
     RESOURCE_PREFIX "/"
     LUPDATE_OPTIONS -no-obsolete

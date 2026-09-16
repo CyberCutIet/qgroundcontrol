@@ -5,6 +5,10 @@
 
 target_sources(${CMAKE_PROJECT_NAME}
     PRIVATE
+        ControlBridgeStatus.cc
+        ControlBridgeStatus.h
+        PocketBridgeWorker.cc
+        PocketBridgeWorker.h
         Joystick.cc
         Joystick.h
         JoystickManager.cc

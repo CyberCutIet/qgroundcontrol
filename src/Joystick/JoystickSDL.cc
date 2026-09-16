@@ -206,6 +206,10 @@ QMap<QString, Joystick*> JoystickSDL::discover()
     for (int n = 0; n < count; ++n) {
         const SDL_JoystickID jid = ids[n];
         QString baseName = SDLJoystick::getNameForInstanceId(jid);
+        // Pocket belongs exclusively to control_bridge; QGC must not open or select it.
+        if (baseName == QStringLiteral("EdgeTX Radiomaster Pocket Joystick")) {
+            continue;
+        }
         if (baseName.isEmpty()) {
             baseName = QStringLiteral("Joystick %1").arg(jid);
         }

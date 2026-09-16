@@ -188,3 +188,11 @@ Qt*-linux*.tar.*
 .tool-versions
 .python-version
 !tools/.python-version
+
+# Private FPV settings, recordings and local backups
+*.local.ini
+*.before-fpv-*.bak
+*.tlog
+*.ulg
+.env
+.env.*

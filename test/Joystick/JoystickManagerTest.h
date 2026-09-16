@@ -30,6 +30,7 @@ private slots:
     // Active joystick selection
     void _setActiveJoystickTest();
     void _autoSelectFirstJoystickTest();
+    void _tx12ReconnectDoesNotSelectPocketTest();
 
     // Polling control tests
     void _pollingControlTest();

@@ -5,6 +5,10 @@
 
 target_sources(${CMAKE_PROJECT_NAME}
     PRIVATE
+        RpiLinkStatusTest.cc
+        RpiLinkStatusTest.h
+        WfbLinkStatusTest.cc
+        WfbLinkStatusTest.h
         LinkConfigurationTest.cc
         LinkConfigurationTest.h
         LinkManagerTest.cc
@@ -24,6 +28,8 @@ target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_
 add_subdirectory(Bluetooth)
 
 add_qgc_test(LinkConfigurationTest LABELS Unit Comms RESOURCE_LOCK Settings TempFiles)
+add_qgc_test(WfbLinkStatusTest LABELS Unit Comms)
+add_qgc_test(RpiLinkStatusTest LABELS Unit Comms)
 add_qgc_test(LinkManagerTest LABELS Integration Comms SERIAL)
 add_qgc_test(LogReplayLinkControllerTest LABELS Unit Comms)
 add_qgc_test(LogReplayLinkTest LABELS Unit Comms)

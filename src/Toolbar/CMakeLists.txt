@@ -7,6 +7,7 @@ qt_add_qml_module(ToolbarModule
     QML_FILES
         ArmedIndicator.qml
         BatteryIndicator.qml
+        DualJoystickIndicator.qml
         EscIndicator.qml
         EscIndicatorPage.qml
         FlightModeIndicator.qml
@@ -26,6 +27,9 @@ qt_add_qml_module(ToolbarModule
         ParameterDownloadProgress.qml
         PlanViewToolBar.qml
         RCRSSIIndicator.qml
+        RadxaRSSIIndicator.qml
+        RpiRSSIIndicator.qml
+        PacketLossIndicator.qml
         RemoteIDIndicator.qml
         RemoteIDIndicatorPage.qml
         RTKGPSIndicator.qml
@@ -72,6 +76,8 @@ qt_add_resources(${CMAKE_PROJECT_NAME} toolbar_qmlimages
         "${CMAKE_SOURCE_DIR}/src/Toolbar/Images/Hamburger.svg"
         "${CMAKE_SOURCE_DIR}/src/Toolbar/Images/HamburgerThin.svg"
         "${CMAKE_SOURCE_DIR}/src/Toolbar/Images/Joystick.png"
+        "${CMAKE_SOURCE_DIR}/src/Toolbar/Images/PocketController.png"
+        "${CMAKE_SOURCE_DIR}/src/Toolbar/Images/Tx12Controller.png"
         "${CMAKE_SOURCE_DIR}/src/Toolbar/Images/Megaphone.svg"
         "${CMAKE_SOURCE_DIR}/src/Toolbar/Images/PaperPlane.svg"
         "${CMAKE_SOURCE_DIR}/src/Toolbar/Images/Plan.svg"
@@ -93,6 +99,18 @@ qt_add_resources(${CMAKE_PROJECT_NAME} toolbar_qmlimages
         "${CMAKE_SOURCE_DIR}/src/Toolbar/Images/Signal60.svg"
         "${CMAKE_SOURCE_DIR}/src/Toolbar/Images/Signal80.svg"
         "${CMAKE_SOURCE_DIR}/src/Toolbar/Images/TelemRSSI.svg"
+        "${CMAKE_SOURCE_DIR}/src/Toolbar/Images/WfbRssi0.svg"
+        "${CMAKE_SOURCE_DIR}/src/Toolbar/Images/WfbRssi1.svg"
+        "${CMAKE_SOURCE_DIR}/src/Toolbar/Images/WfbRssi2.svg"
+        "${CMAKE_SOURCE_DIR}/src/Toolbar/Images/WfbRssi3.svg"
+        "${CMAKE_SOURCE_DIR}/src/Toolbar/Images/WfbRssi4.svg"
+        "${CMAKE_SOURCE_DIR}/src/Toolbar/Images/WfbRssiUnknown.svg"
+        "${CMAKE_SOURCE_DIR}/src/Toolbar/Images/PacketLoss0.svg"
+        "${CMAKE_SOURCE_DIR}/src/Toolbar/Images/PacketLoss1.svg"
+        "${CMAKE_SOURCE_DIR}/src/Toolbar/Images/PacketLoss2.svg"
+        "${CMAKE_SOURCE_DIR}/src/Toolbar/Images/PacketLoss3.svg"
+        "${CMAKE_SOURCE_DIR}/src/Toolbar/Images/PacketLoss4.svg"
+        "${CMAKE_SOURCE_DIR}/src/Toolbar/Images/PacketLossUnknown.svg"
         "${CMAKE_SOURCE_DIR}/src/Toolbar/Images/TrackingIcon.svg"
         "${CMAKE_SOURCE_DIR}/src/Toolbar/Images/Yield.svg"
 )

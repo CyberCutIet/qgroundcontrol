@@ -61,3 +61,7 @@ QGC's interface is translated by the community — help translate it into your l
 ## Star history
 
 [![Star History Chart](https://api.star-history.com/svg?repos=mavlink/qgroundcontrol&type=Date)](https://star-history.com/#mavlink/qgroundcontrol&Date)
+
+## FPV custom branch
+
+On `fpv-modified`, see [FPV setup, controls, WFB indicators and update workflow](fpv/README.md).

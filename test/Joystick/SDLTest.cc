@@ -1,10 +1,11 @@
 #include "SDLTest.h"
 
+#include <QtCore/QRegularExpression>
+#include <SDL3/SDL.h>
+
 #include "JoystickSDL.h"
 #include "SDLJoystick.h"
 #include "SDLPlatform.h"
-
-#include <QtCore/QRegularExpression>
 
 void SDLTest::initTestCase()
 {
@@ -322,6 +323,11 @@ void SDLTest::_preOpenDeviceQueryTest()
     Q_UNUSED(path);  // May be empty for virtual
     QString guid = SDLJoystick::getGUIDForInstanceId(instanceId);
     QVERIFY2(!guid.isEmpty(), "GUID should not be empty");
+    // A shared gamepad mapping must not replace the USB device's own name.
+    const QString mappedName = QStringLiteral("OpenTX Radiomaster TX12 Joystick");
+    QVERIFY(SDLJoystick::addMapping(guid + ',' + mappedName + QStringLiteral(",a:b0,leftx:a0,lefty:a1,")));
+    QCOMPARE(QString::fromUtf8(SDL_GetGamepadNameForID(static_cast<SDL_JoystickID>(instanceId))), mappedName);
+    QCOMPARE(SDLJoystick::getNameForInstanceId(instanceId), testName);
     int vendor = SDLJoystick::getVendorForInstanceId(instanceId);
     Q_UNUSED(vendor);   // 0 for virtual
     int product = SDLJoystick::getProductForInstanceId(instanceId);

@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Controls
 import QtQuick.Layouts
 
 import QGroundControl
@@ -7,13 +8,26 @@ import QGroundControl.Controls
 // Joystick Indicator
 Item {
     id:             control
-    width:          joystickIcon.width * 1.1
+    width:          Math.max(joystickIcon.width, transmitterLabel.visible ? transmitterLabel.implicitWidth : 0) * 1.1
     anchors.top:    parent.top
     anchors.bottom: parent.bottom
 
     property bool showIndicator:    _activeJoystick
-    property var  _activeJoystick:  joystickManager.activeJoystick
-    property bool _joystickEnabled: globals.activeVehicle && joystickManager.activeJoystickEnabledForActiveVehicle
+    property var joystick: joystickManager.activeJoystick
+    property string displayName: ""
+    property bool showLabel: true
+    property bool framedIcon: false
+    property real iconAspectRatio: 1
+    property real frameRadius: 4
+    property url iconSource: "/qmlimages/Joystick.png"
+    property bool iconWhiteMask: false
+    property string connectionStatus: ""
+    property string connectionDetail: ""
+    property bool externalControl: false
+    property color indicatorColor: !globals.activeVehicle || _joystickEnabled ? qgcPal.buttonText : "orange"
+
+    property var  _activeJoystick: joystick
+    property bool _joystickEnabled: globals.activeVehicle && _activeJoystick === joystickManager.activeJoystick && joystickManager.activeJoystickEnabledForActiveVehicle
 
     QGCPalette { id: qgcPal }
 
@@ -21,12 +35,27 @@ Item {
         id: joystickInfoPage
 
         ToolIndicatorPage {
-            showExpand: true
+            showExpand: !control.externalControl && !!_activeJoystick
 
             contentComponent: SettingsGroupLayout {
-                heading: _activeJoystick ? _activeJoystick.name : qsTr("Joystick")
+                heading: control.displayName || (_activeJoystick ? _activeJoystick.name : qsTr("Joystick"))
+
+                LabelledLabel {
+                    visible: control.connectionStatus.length > 0
+                    label: qsTr("USB / input:")
+                    labelText: control.connectionStatus
+                }
+
+                QGCLabel {
+                    visible: control.connectionDetail.length > 0
+                    text: control.connectionDetail
+                    wrapMode: Text.WordWrap
+                    Layout.fillWidth: true
+                    Layout.maximumWidth: ScreenTools.defaultFontPixelWidth * 42
+                }
 
                 GridLayout {
+                    visible: !control.externalControl && !!_activeJoystick
                     columns:        2
                     columnSpacing:  ScreenTools.defaultFontPixelWidth * 2
 
@@ -245,27 +274,46 @@ Item {
         }
     }
 
+    Rectangle {
+        anchors.fill: parent
+        anchors.margins: 1
+        visible: control.framedIcon
+        radius: control.frameRadius
+        color: "#b0202428"
+        border.width: 1
+        border.color: control.indicatorColor
+    }
+
     QGCColoredImage {
         id:                 joystickIcon
-        width:              height
+        width:              height * control.iconAspectRatio
         anchors.top:        parent.top
-        anchors.bottom:     parent.bottom
+        anchors.bottom:     transmitterLabel.visible ? transmitterLabel.top : parent.bottom
+        anchors.horizontalCenter: parent.horizontalCenter
         sourceSize.height:  height
-        source:             "/qmlimages/Joystick.png"
+        source:             control.iconSource
+        whiteMask:          control.iconWhiteMask
         fillMode:           Image.PreserveAspectFit
-        color: {
-            if (!globals.activeVehicle) {
-                return qgcPal.buttonText
-            }
-            if (_joystickEnabled) {
-                return qgcPal.buttonText
-            }
-            return "orange"
-        }
+        color:              control.indicatorColor
+    }
+
+    QGCLabel {
+        id: transmitterLabel
+        anchors.bottom: parent.bottom
+        anchors.horizontalCenter: parent.horizontalCenter
+        text: control.displayName
+        visible: control.showLabel && text.length > 0
+        font.pointSize: ScreenTools.smallFontPointSize
     }
 
     QGCMouseArea {
-        fillItem:   joystickIcon
+        id: indicatorMouseArea
+        fillItem:   control
+        hoverEnabled: true
         onClicked:  mainWindow.showIndicatorDrawer(joystickInfoPage, control)
     }
+
+    ToolTip.visible: indicatorMouseArea.containsMouse && !control.showLabel
+    ToolTip.delay: 400
+    ToolTip.text: control.displayName
 }

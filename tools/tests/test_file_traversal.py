@@ -15,7 +15,16 @@ from common.file_traversal import (
 class TestFindRepoRoot:
     def test_find_repo_root(self) -> None:
         root = find_repo_root(Path(__file__))
-        assert (root / ".git").exists()
+        assert (root / "src" / "qgc_version.h.in").is_file()
+
+    def test_source_snapshot_in_parent_repository(self, tmp_path: Path) -> None:
+        (tmp_path / ".git").mkdir()
+        source = tmp_path / "QGroundControl"
+        (source / "src").mkdir(parents=True)
+        (source / "tools").mkdir()
+        (source / "src" / "qgc_version.h.in").touch()
+        (source / "tools" / "pyproject.toml").touch()
+        assert find_repo_root(source / "tools") == source
 
 
 class TestShouldSkipPath:

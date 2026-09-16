@@ -8,6 +8,7 @@
 /// for a runtime ColorOverlay shader.
 ///
 /// URL format: image://coloredsvg/<resource-path>?color=<RRGGBB|AARRGGBB>
+/// Optional &mask=white extracts bright white strokes from opaque raster artwork.
 ///
 class ColoredSvgImageProvider : public QQuickImageProvider
 {

@@ -9,6 +9,7 @@ Item {
 
     property color  color:  "white"
     property url    source
+    property bool   whiteMask: false
 
     property alias asynchronous:        image.asynchronous
     property alias cache:               image.cache
@@ -47,7 +48,7 @@ Item {
         anchors.fill:       parent
         sourceSize.height:  height
         source:             root._path.length > 0
-                            ? "image://coloredsvg" + root._path + "?color=" + root._hex
+                            ? "image://coloredsvg" + root._path + "?color=" + root._hex + (root.whiteMask ? "&mask=white" : "")
                             : ""
     }
 }
